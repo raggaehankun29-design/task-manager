@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="TaskFlow"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="theme-color" content="#0f1117"/>
+  <title>TaskFlow</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a; --border: #2e3350;
+      --accent: #5b7fff; --accent2: #7c5bff; --text: #e8eaf6; --text-sub: #8890b5;
+      --danger: #ff4f4f; --success: #3ecf8e; --warn: #ffa94d;
+      --radius: 14px; --shadow: 0 4px 24px rgba(0,0,0,0.45);
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; padding-top: var(--safe-top); padding-bottom: var(--safe-bottom); }
+
+    header { background: linear-gradient(135deg, #1a1d27 0%, #12152a 100%); border-bottom: 1px solid var(--border); padding: 0 16px; display: flex; align-items: center; justify-content: space-between; height: 52px; flex-shrink: 0; z-index: 100; }
+    .logo { font-size: 1.1rem; font-weight: 700; background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .save-status { font-size: 0.68rem; padding: 3px 8px; border-radius: 50px; font-weight: 500; }
+    .save-status.saved  { color: var(--success); border: 1px solid rgba(62,207,142,0.4); }
+    .save-status.saving { color: var(--warn);    border: 1px solid rgba(255,169,77,0.4); }
+
+    .bottom-nav { display: flex; background: linear-gradient(135deg, #1a1d27 0%, #12152a 100%); border-top: 1px solid var(--border); flex-shrink: 0; padding-bottom: var(--safe-bottom); }
+    .bottom-nav button { flex: 1; background: transparent; border: none; color: var(--text-sub); padding: 10px 4px 8px; font-family: inherit; font-size: 0.62rem; font-weight: 500; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; -webkit-tap-highlight-color: transparent; }
+    .bottom-nav button .nav-icon { font-size: 1.3rem; line-height: 1; }
+    .bottom-nav button.active { color: var(--accent); }
+    .bottom-nav button.active .nav-icon { filter: drop-shadow(0 0 4px rgba(91,127,255,0.6)); }
+
+    .main-content { flex: 1; overflow: hidden; position: relative; }
+    .page { display: none; position: absolute; inset: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px; }
+    .page.active { display: block; }
+    #page-gantt { display: none; position: absolute; inset: 0; overflow: hidden; flex-direction: column; padding: 12px 0 0; }
+    #page-gantt.active { display: flex; }
+
+    .page-title { font-size: 1.2rem; font-weight: 700; display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+    .page-title::before { content: ''; display: inline-block; width: 3px; height: 1.2em; background: linear-gradient(180deg, var(--accent), var(--accent2)); border-radius: 4px; }
+    .save-banner { background: rgba(91,127,255,0.1); border: 1px solid rgba(91,127,255,0.3); border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; font-size: 0.78rem; color: var(--accent); line-height: 1.6; }
+
+    .form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 16px; box-shadow: var(--shadow); }
+    .form-group { margin-bottom: 18px; }
+    .form-group label { display: block; font-size: 0.72rem; font-weight: 600; color: var(--text-sub); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }
+    .form-group input[type="text"],
+    .form-group input[type="date"] { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: inherit; font-size: 1rem; padding: 12px 14px; outline: none; -webkit-appearance: none; appearance: none; }
+    .form-group input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(91,127,255,0.18); }
+    input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7) sepia(1) saturate(3) hue-rotate(200deg); cursor: pointer; width: 20px; height: 20px; }
+    .form-hint { font-size: 0.7rem; color: var(--text-sub); margin-top: 4px; }
+    .date-row { display: flex; gap: 10px; align-items: flex-start; }
+    .date-row .date-field { flex: 1; }
+    .date-row .date-field label { display: block; font-size: 0.72rem; font-weight: 600; color: var(--text-sub); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }
+    .date-separator { padding-top: 34px; color: var(--text-sub); font-size: 1rem; flex-shrink: 0; }
+    .btn-submit { margin-top: 4px; width: 100%; padding: 15px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 10px; color: #fff; font-family: inherit; font-size: 1rem; font-weight: 700; cursor: pointer; box-shadow: 0 4px 16px rgba(91,127,255,0.35); -webkit-tap-highlight-color: transparent; }
+    .btn-submit:active { opacity: 0.85; transform: scale(0.98); }
+
+    /* ジャンルドロップダウン */
+    .genre-input-wrap { position: relative; }
+    .genre-input-row { display: flex; gap: 8px; }
+    .genre-input-row input { flex: 1; }
+    .genre-dropdown-btn { padding: 12px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text-sub); font-family: inherit; font-size: 0.85rem; cursor: pointer; flex-shrink: 0; -webkit-tap-highlight-color: transparent; }
+    .genre-dropdown-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); z-index: 50; max-height: 180px; overflow-y: auto; display: none; }
+    .genre-dropdown-list.show { display: block; }
+    .genre-dropdown-item { padding: 12px 16px; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; gap: 10px; -webkit-tap-highlight-color: transparent; }
+    .genre-dropdown-item:active { background: var(--surface2); }
+    .genre-dropdown-item .item-color { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .genre-dropdown-empty { padding: 12px 16px; font-size: 0.85rem; color: var(--text-sub); text-align: center; }
+
+    /* タスクカード */
+    .genre-section { margin-bottom: 24px; }
+    .genre-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .genre-badge { display: inline-block; padding: 4px 12px; border-radius: 50px; font-size: 0.75rem; font-weight: 700; color: #fff; }
+    .genre-count { font-size: 0.72rem; color: var(--text-sub); }
+
+    .task-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px 14px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 8px;
+      position: relative; overflow: visible;
+      /* ★修正: touch-action: none → pan-y
+         縦スクロールはブラウザに委ね、長押しドラッグは維持する */
+      touch-action: pan-y;
+      user-select: none; -webkit-user-select: none;
+    }
+    .task-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: 3px 0 0 3px; }
+    .task-card-top { display: flex; align-items: center; gap: 10px; }
+    .task-card.dragging { opacity: 0.4; transform: scale(1.03); box-shadow: 0 12px 40px rgba(0,0,0,0.6); z-index: 100; }
+    .genre-section.drag-over-section { background: rgba(91,127,255,0.07); border-radius: 12px; outline: 2px dashed var(--accent); outline-offset: 2px; }
+    .task-info { flex: 1; min-width: 0; }
+    .task-name { font-size: 0.9rem; font-weight: 500; word-break: break-all; }
+    .task-card.today-due { border-color: rgba(62,207,142,0.35); background: rgba(62,207,142,0.06); }
+    .task-card.today-due .task-name { color: var(--success); font-weight: 700; }
+    .task-card.urgent { border-color: rgba(255,79,79,0.35); background: rgba(255,79,79,0.06); }
+    .task-card.urgent .task-name { color: var(--danger); font-weight: 700; }
+    .task-checkbox { appearance: none; -webkit-appearance: none; width: 24px; height: 24px; border: 2px solid var(--border); border-radius: 6px; cursor: pointer; flex-shrink: 0; position: relative; background: var(--surface2); }
+    .task-checkbox:checked { background: var(--success); border-color: var(--success); }
+    .task-checkbox:checked::after { content: ''; position: absolute; left: 5px; top: 2px; width: 9px; height: 13px; border: 2px solid #fff; border-top: none; border-left: none; transform: rotate(45deg); }
+
+    /* 期間編集エリア */
+    .task-period-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .task-date-btn {
+      font-size: 0.78rem; color: var(--text-sub); background: var(--surface2);
+      border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px;
+      cursor: pointer; font-family: inherit; -webkit-tap-highlight-color: transparent;
+      white-space: nowrap;
+    }
+    .task-date-btn:active { border-color: var(--accent); color: var(--accent); }
+    .task-date-btn.editing { border-color: var(--accent); color: var(--accent); background: rgba(91,127,255,0.12); }
+    .task-date-sep { font-size: 0.78rem; color: var(--text-sub); }
+
+    .btn-move { background: transparent; border: 1px solid rgba(91,127,255,0.4); color: var(--accent); padding: 6px 10px; border-radius: 6px; font-family: inherit; font-size: 0.72rem; cursor: pointer; white-space: nowrap; flex-shrink: 0; -webkit-tap-highlight-color: transparent; }
+    .btn-move:active { background: var(--accent); color: #fff; }
+
+    /* ドラッグゴースト */
+    #drag-ghost { position: fixed; pointer-events: none; z-index: 9999; background: var(--surface); border: 2px solid var(--accent); border-radius: 10px; padding: 10px 14px; font-size: 0.85rem; font-weight: 500; color: var(--text); box-shadow: 0 8px 32px rgba(0,0,0,0.6); opacity: 0.9; transform: translate(-50%, -50%); white-space: nowrap; max-width: 200px; overflow: hidden; text-overflow: ellipsis; display: none; }
+
+    .empty-msg { text-align: center; color: var(--text-sub); font-size: 0.88rem; padding: 60px 0; }
+    .empty-msg .icon { font-size: 2.5rem; margin-bottom: 12px; }
+    .done-task-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; opacity: 0.75; }
+    .done-task-name { flex: 1; font-size: 0.88rem; color: var(--text-sub); text-decoration: line-through; word-break: break-all; }
+    .done-genre-label { font-size: 0.75rem; font-weight: 700; color: var(--text-sub); border-left: 3px solid var(--border); padding-left: 8px; margin-bottom: 10px; }
+    .btn-delete { background: transparent; border: 1px solid rgba(255,79,79,0.4); color: var(--danger); padding: 6px 12px; border-radius: 6px; font-family: inherit; font-size: 0.75rem; cursor: pointer; white-space: nowrap; flex-shrink: 0; -webkit-tap-highlight-color: transparent; }
+    .btn-delete:active { background: var(--danger); color: #fff; }
+
+    .backup-btns { display: flex; gap: 8px; margin-bottom: 16px; }
+    .btn-sm { flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; padding: 10px 12px; border-radius: 8px; font-family: inherit; font-size: 0.78rem; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    .btn-sm-green { border: 1px solid rgba(62,207,142,0.5); background: transparent; color: var(--success); }
+    .btn-sm-green:active { background: var(--success); color: #fff; }
+    .btn-sm-blue  { border: 1px solid rgba(91,127,255,0.5); background: transparent; color: var(--accent); }
+    .btn-sm-blue:active  { background: var(--accent); color: #fff; }
+    #upload-input { display: none; }
+
+    /* ガント */
+    .gantt-toolbar { display: flex; align-items: center; gap: 8px; padding: 0 12px 10px; flex-wrap: wrap; flex-shrink: 0; }
+    .gantt-nav-btn { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-sub); font-family: inherit; font-size: 0.75rem; cursor: pointer; white-space: nowrap; -webkit-tap-highlight-color: transparent; }
+    .gantt-nav-btn:active { background: var(--surface2); color: var(--text); }
+    .gantt-scale-select { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-family: inherit; font-size: 0.75rem; cursor: pointer; outline: none; -webkit-appearance: none; flex: 1; min-width: 100px; }
+    .btn-excel { display: flex; align-items: center; gap: 4px; padding: 8px 12px; border-radius: 8px; font-family: inherit; font-size: 0.75rem; font-weight: 700; cursor: pointer; border: 1px solid rgba(62,207,142,0.5); background: transparent; color: var(--success); -webkit-tap-highlight-color: transparent; }
+    .btn-excel:active { background: var(--success); color: #fff; }
+    .gantt-legend { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 12px 8px; flex-shrink: 0; }
+    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.72rem; color: var(--text-sub); }
+    .legend-color { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+    .gantt-wrapper { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; border-top: 1px solid var(--border); background: var(--surface); }
+    .gantt-table { border-collapse: collapse; table-layout: fixed; }
+    .gantt-table thead tr th { background: var(--surface2); border: 1px solid var(--border); font-size: 0.65rem; font-weight: 700; color: var(--text-sub); padding: 0; position: sticky; top: 0; z-index: 10; white-space: nowrap; }
+    .th-month { text-align: center; padding: 5px 3px; font-size: 0.7rem; font-weight: 700; color: var(--text); border-bottom: 1px solid var(--border) !important; }
+    .th-day { text-align: center; padding: 3px 1px; font-size: 0.62rem; }
+    .th-day.today-col { background: rgba(91,127,255,0.25) !important; color: var(--accent) !important; font-weight: 700; }
+    .th-day.sat { color: #74c0fc; } .th-day.sun { color: #ff6b6b; }
+    .th-group-label,.th-task-label { text-align: center; padding: 5px 3px; font-size: 0.65rem; position: sticky; z-index: 20; }
+    .th-group-label { left: 0; } .th-task-label { left: 36px; }
+    .gantt-table tbody tr td { border: 1px solid var(--border); padding: 0; height: 36px; vertical-align: middle; }
+    .td-group { position: sticky; left: 0; z-index: 5; background: var(--surface); text-align: center; vertical-align: middle; width: 36px; min-width: 36px; }
+    .td-group-inner { writing-mode: vertical-lr; font-size: 0.65rem; font-weight: 700; color: #fff; padding: 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+    .td-task { position: sticky; left: 36px; z-index: 5; background: var(--surface); padding: 0 8px; font-size: 0.72rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 120px; min-width: 120px; max-width: 120px; border-right: 2px solid var(--border) !important; }
+    .td-day { text-align: center; font-size: 0.62rem; position: relative; }
+    .td-day.today-col { background: rgba(91,127,255,0.08) !important; }
+    .td-day.weekend { background: rgba(255,255,255,0.02); }
+    .td-day.today-col::after { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; background: var(--accent); opacity: 0.6; transform: translateX(-50%); pointer-events: none; }
+    .group-border-top td { border-top: 2px solid var(--border) !important; }
+    .gantt-empty { text-align: center; color: var(--text-sub); font-size: 0.88rem; padding: 60px 16px; }
+    .gantt-empty .icon { font-size: 2.5rem; margin-bottom: 12px; }
+
+    /* モーダル（ボトムシート） */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.72); z-index: 200; display: flex; align-items: flex-end; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.25s; }
+    .modal-overlay.show { opacity: 1; pointer-events: all; }
+    .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 20px 20px 0 0; padding: 24px 20px calc(24px + var(--safe-bottom)); width: 100%; max-width: 480px; box-shadow: var(--shadow); transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.32,0.72,0,1); max-height: 80vh; overflow-y: auto; }
+    .modal-overlay.show .modal { transform: translateY(0); }
+    .modal-title { font-size: 1rem; font-weight: 700; margin-bottom: 14px; }
+    .modal-genre-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+    .modal-genre-item { padding: 14px 16px; border-radius: 10px; border: 1px solid var(--border); cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 0.9rem; -webkit-tap-highlight-color: transparent; }
+    .modal-genre-item:active { border-color: var(--accent); background: rgba(91,127,255,0.08); }
+    .modal-genre-item .item-color { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+    .modal-btn { width: 100%; padding: 14px; border-radius: 10px; font-family: inherit; font-size: 0.9rem; font-weight: 700; cursor: pointer; text-align: center; -webkit-tap-highlight-color: transparent; margin-bottom: 8px; }
+    .modal-btn-cancel  { border: 1px solid var(--border); background: transparent; color: var(--text-sub); }
+    .modal-btn-merge   { border: none; background: var(--accent); color: #fff; }
+    .modal-btn-replace { border: none; background: var(--warn); color: #fff; }
+    .modal-body { font-size: 0.85rem; color: var(--text-sub); line-height: 1.7; margin-bottom: 16px; }
+
+    /* 日付編集ボトムシート */
+    .date-edit-label { font-size: 0.78rem; color: var(--text-sub); margin-bottom: 8px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+    .date-edit-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-family: inherit; font-size: 1rem; padding: 14px; outline: none; -webkit-appearance: none; appearance: none; margin-bottom: 16px; }
+    .date-edit-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(91,127,255,0.18); }
+
+    #toast { position: fixed; bottom: calc(80px + var(--safe-bottom)); left: 50%; transform: translateX(-50%) translateY(20px); background: var(--success); color: #fff; padding: 10px 22px; border-radius: 50px; font-size: 0.85rem; font-weight: 500; opacity: 0; pointer-events: none; transition: opacity 0.3s, transform 0.3s; z-index: 999; box-shadow: 0 4px 20px rgba(62,207,142,0.4); white-space: nowrap; max-width: 90vw; text-align: center; }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⚡ TaskFlow</div>
+  <div class="save-status saved" id="saveStatus">✓ 保存済み</div>
+</header>
+
+<div class="main-content">
+
+  <!-- 1ページ目 -->
+  <div id="page-input" class="page active">
+    <div class="page-title">タスク入力</div>
+    <div class="save-banner">💡 入力内容はこのデバイスに自動保存されます。<br>Safariの「履歴とWebサイトデータを消去」を行うとデータが消えるためご注意ください。</div>
+    <div class="form-card">
+      <div class="form-group">
+        <label>タスクジャンル</label>
+        <div class="genre-input-wrap">
+          <div class="genre-input-row">
+            <input type="text" id="input-genre" maxlength="20" placeholder="例：会議・書類・調査"
+                   autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                   oninput="filterGenreDropdown()" onfocus="openGenreDropdown()"/>
+            <button class="genre-dropdown-btn" type="button" ontouchstart="toggleGenreDropdown(event)">▼</button>
+          </div>
+          <div class="genre-dropdown-list" id="genreDropdownList"></div>
+        </div>
+        <div class="form-hint">最大20文字 ／ ▼から登録済みジャンルを選択できます</div>
+      </div>
+      <div class="form-group">
+        <label for="input-task">タスク名</label>
+        <input type="text" id="input-task" maxlength="50" placeholder="例：○○委員会の資料作成"
+               autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      </div>
+      <div class="form-group">
+        <div class="date-row">
+          <div class="date-field">
+            <label>開始日</label>
+            <input type="date" id="input-start"/>
+          </div>
+          <div class="date-separator">〜</div>
+          <div class="date-field">
+            <label>終了日</label>
+            <input type="date" id="input-end"/>
+          </div>
+        </div>
+      </div>
+      <button class="btn-submit" onclick="addTask()">＋ タスクを追加する</button>
+    </div>
+  </div>
+
+  <!-- 2ページ目 -->
+  <div id="page-list" class="page">
+    <div class="page-title">タスク一覧</div>
+    <div class="backup-btns">
+      <button class="btn-sm btn-sm-green" onclick="downloadCSV()">⬇ CSVダウンロード</button>
+      <button class="btn-sm btn-sm-blue"  onclick="document.getElementById('upload-input').click()">⬆ CSVアップロード</button>
+      <input type="file" id="upload-input" accept=".csv" onchange="handleUpload(event)"/>
+    </div>
+    <div id="task-list-container"></div>
+  </div>
+
+  <!-- 完了済み -->
+  <div id="page-done" class="page">
+    <div class="page-title">完了済みタスク</div>
+    <div id="done-list-container"></div>
+  </div>
+
+  <!-- ガント -->
+  <div id="page-gantt" class="page">
+    <div class="gantt-toolbar">
+      <button class="gantt-nav-btn" onclick="shiftGantt(-1)">◀ 前</button>
+      <button class="gantt-nav-btn" onclick="jumpGanttToday()">今日</button>
+      <button class="gantt-nav-btn" onclick="shiftGantt(1)">次 ▶</button>
+      <button class="gantt-nav-btn" onclick="fitGanttToTasks()">全期間</button>
+      <select class="gantt-scale-select" id="ganttScale" onchange="onScaleChange()">
+        <option value="day">1日単位</option>
+        <option value="ten">10日単位</option>
+        <option value="month">月単位</option>
+      </select>
+      <button class="btn-excel" onclick="exportExcel()">📊 Excel</button>
+    </div>
+    <div class="gantt-legend" id="ganttLegend"></div>
+    <div class="gantt-wrapper" id="ganttWrapper">
+      <div id="gantt-container"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ドラッグゴースト -->
+<div id="drag-ghost"></div>
+
+<!-- 日付編集ボトムシート -->
+<div class="modal-overlay" id="dateEditModal">
+  <div class="modal">
+    <div class="modal-title" id="dateEditTitle">日付を変更</div>
+    <div class="date-edit-label" id="dateEditLabel"></div>
+    <input type="date" class="date-edit-input" id="dateEditInput"/>
+    <button class="modal-btn modal-btn-merge" onclick="applyDateChange()">確定</button>
+    <button class="modal-btn modal-btn-cancel" onclick="closeDateEditModal()">キャンセル</button>
+  </div>
+</div>
+
+<!-- グループ移動モーダル -->
+<div class="modal-overlay" id="moveModal">
+  <div class="modal">
+    <div class="modal-title">📦 移動先グループを選択</div>
+    <div class="modal-genre-list" id="moveGenreList"></div>
+    <button class="modal-btn modal-btn-cancel" onclick="closeMoveModal()">キャンセル</button>
+  </div>
+</div>
+
+<!-- CSVアップロードモーダル -->
+<div class="modal-overlay" id="uploadModal">
+  <div class="modal">
+    <div class="modal-title">📂 CSVアップロード</div>
+    <div class="modal-body" id="modalBody"></div>
+    <button class="modal-btn modal-btn-merge"   onclick="applyUpload('merge')">追加（既存を残す）</button>
+    <button class="modal-btn modal-btn-replace" onclick="applyUpload('replace')">上書き（既存を消す）</button>
+    <button class="modal-btn modal-btn-cancel"  onclick="closeUploadModal()">キャンセル</button>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <button class="active" onclick="showPage('input')" id="nav-input"><span class="nav-icon">✏️</span>入力</button>
+  <button onclick="showPage('list')"  id="nav-list"><span class="nav-icon">📋</span>一覧</button>
+  <button onclick="showPage('gantt')" id="nav-gantt"><span class="nav-icon">📅</span>スケジュール</button>
+  <button onclick="showPage('done')"  id="nav-done"><span class="nav-icon">✅</span>完了済み</button>
+</nav>
+
+<div id="toast"></div>
+
+<script>
+// ============================================================
+//  localStorage
+// ============================================================
+const KEYS={tasks:'taskflow_v6_tasks',done:'taskflow_v6_done',colorMap:'taskflow_v6_colorMap'};
+const Store=(()=>{
+  let ok=false;
+  try{localStorage.setItem('__tf__','1');localStorage.removeItem('__tf__');ok=true;}catch(e){}
+  function get(k,fb){try{if(ok){const v=localStorage.getItem(k);return v!==null?JSON.parse(v):fb;}}catch(e){}return fb;}
+  function set(k,v){try{if(ok)localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+  return{get,set};
+})();
+
+let tasks    =Store.get(KEYS.tasks,    []);
+let doneTasks=Store.get(KEYS.done,     []);
+let colorMap =Store.get(KEYS.colorMap, {});
+
+function saveAll(){Store.set(KEYS.tasks,tasks);Store.set(KEYS.done,doneTasks);Store.set(KEYS.colorMap,colorMap);setSaveStatus('saved');}
+function setSaveStatus(s){const el=document.getElementById('saveStatus');if(s==='saved'){el.textContent='✓ 保存済み';el.className='save-status saved';}else{el.textContent='● 保存中...';el.className='save-status saving';}}
+
+// ============================================================
+//  カラーパレット 50色
+// ============================================================
+const PALETTE=[
+  '#5b7fff','#3a6bff','#7eb8ff','#2255cc','#a0c4ff',
+  '#7c5bff','#9d4edd','#c77dff','#5a189a','#b185db',
+  '#ff6b6b','#ff4f4f','#ff8fab','#f06595','#c9184a',
+  '#ffa94d','#ff922b','#ff6000','#ffba08','#f4a261',
+  '#51cf66','#2dc653','#a9e34b','#74b816','#40916c',
+  '#22d3ee','#0096c7','#48cae4','#00b4d8','#63e6be',
+  '#d4e157','#c6e222','#aeea00','#e6f700','#b5e550',
+  '#e07a5f','#c1694f','#a4522a','#d4845a','#b5633a',
+  '#e599f7','#da77f2','#cc5de8','#ae3ec9','#9c36b5',
+  '#74c0fc','#4dabf7','#339af0','#1c7ed6','#94d82d'
+];
+function getColor(genre){if(colorMap[genre])return colorMap[genre];const used=new Set(Object.values(colorMap));const color=PALETTE.find(c=>!used.has(c))||generateColor(Object.keys(colorMap).length);colorMap[genre]=color;return color;}
+function generateColor(i){const h=Math.round((i*137.508)%360);return`hsl(${h},70%,58%)`;}
+function cleanColors(){const active=new Set([...tasks.map(t=>t.genre),...doneTasks.map(t=>t.genre)]);Object.keys(colorMap).forEach(g=>{if(!active.has(g))delete colorMap[g];});}
+
+// ============================================================
+//  ページ切替
+// ============================================================
+function showPage(name){
+  ['input','list','gantt','done'].forEach(n=>{
+    const pg=document.getElementById('page-'+n);const nb=document.getElementById('nav-'+n);
+    if(pg)pg.classList.toggle('active',n===name);if(nb)nb.classList.toggle('active',n===name);
+  });
+  if(name==='list')  renderList();
+  if(name==='done')  renderDone();
+  if(name==='gantt') renderGantt();
+}
+
+// ============================================================
+//  日付ユーティリティ
+// ============================================================
+function parseDate(str){if(!str)return null;const d=new Date(str+'T00:00:00');return isNaN(d.getTime())?null:d;}
+function dateToStr(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
+function todayStr(){return dateToStr(new Date());}
+function formatDateDisp(str){if(!str)return'未設定';const d=parseDate(str);if(!d)return'未設定';return`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;}
+function isToday(str){return!!str&&str===todayStr();}
+function isUrgent(str){if(!str)return false;const today=new Date();today.setHours(0,0,0,0);const d=parseDate(str);if(!d)return false;const diff=(d-today)/86400000;return diff>0&&diff<=7;}
+function roundToTen(d){const day=d.getDate(),y=d.getFullYear(),m=d.getMonth();if(day<=4)return new Date(y,m,1);else if(day<=14)return new Date(y,m,10);else if(day<=24)return new Date(y,m,20);else return new Date(y,m,30);}
+
+// ============================================================
+//  ジャンルドロップダウン
+// ============================================================
+function getActiveGenres(){const g=[],s=new Set();tasks.forEach(t=>{if(!s.has(t.genre)){s.add(t.genre);g.push(t.genre);}});return g;}
+function openGenreDropdown(){renderGenreDropdown(document.getElementById('input-genre').value);document.getElementById('genreDropdownList').classList.add('show');}
+function closeGenreDropdown(){document.getElementById('genreDropdownList').classList.remove('show');}
+function toggleGenreDropdown(e){e.preventDefault();const l=document.getElementById('genreDropdownList');if(l.classList.contains('show')){l.classList.remove('show');}else{renderGenreDropdown('');l.classList.add('show');}}
+function filterGenreDropdown(){renderGenreDropdown(document.getElementById('input-genre').value);document.getElementById('genreDropdownList').classList.add('show');}
+function renderGenreDropdown(filter){
+  const list=document.getElementById('genreDropdownList');
+  const genres=getActiveGenres();const filtered=filter?genres.filter(g=>g.includes(filter)):genres;
+  if(filtered.length===0){list.innerHTML=`<div class="genre-dropdown-empty">${genres.length===0?'登録済みジャンルはありません':'一致するジャンルがありません'}</div>`;return;}
+  list.innerHTML=filtered.map(g=>`<div class="genre-dropdown-item" ontouchstart="selectGenre('${esc(g)}')"><span class="item-color" style="background:${getColor(g)}"></span>${esc(g)}</div>`).join('');
+}
+function selectGenre(genre){document.getElementById('input-genre').value=genre;closeGenreDropdown();}
+document.addEventListener('touchstart',(e)=>{const wrap=document.querySelector('.genre-input-wrap');if(wrap&&!wrap.contains(e.target))closeGenreDropdown();},{passive:true});
+
+// ============================================================
+//  タスク追加
+// ============================================================
+function addTask(){
+  const genre=document.getElementById('input-genre').value.trim();
+  const name =document.getElementById('input-task').value.trim();
+  const start=document.getElementById('input-start').value;
+  const end  =document.getElementById('input-end').value;
+  if(!genre){showToast('⚠ ジャンルを入力してください','#ff6b6b');return;}
+  if(!name) {showToast('⚠ タスク名を入力してください','#ff6b6b');return;}
+  if(!start){showToast('⚠ 開始日を選択してください','#ff6b6b');return;}
+  if(!end)  {showToast('⚠ 終了日を選択してください','#ff6b6b');return;}
+  if(start>end){showToast('⚠ 終了日は開始日以降にしてください','#ff6b6b');return;}
+  tasks.push({id:Date.now(),genre,name,startDate:start,endDate:end});
+  saveAll();
+  document.getElementById('input-genre').value='';document.getElementById('input-task').value='';
+  document.getElementById('input-start').value='';document.getElementById('input-end').value='';
+  showToast('✓ タスクを追加しました');
+}
+function completeTask(id){const idx=tasks.findIndex(t=>t.id===id);if(idx===-1)return;doneTasks.push({...tasks.splice(idx,1)[0],completedAt:Date.now()});cleanColors();saveAll();renderList();}
+function deleteTask(id){doneTasks=doneTasks.filter(t=>t.id!==id);cleanColors();saveAll();renderDone();}
+
+// ============================================================
+//  期間編集（ボトムシート）
+// ============================================================
+let dateEditTaskId=null;
+let dateEditType=null;
+
+function openDateEditModal(taskId, type){
+  dateEditTaskId=taskId;dateEditType=type;
+  const task=tasks.find(t=>t.id===taskId);if(!task)return;
+  const isStart=type==='start';
+  document.getElementById('dateEditTitle').textContent=isStart?'📅 開始日を変更':'📅 終了日を変更';
+  document.getElementById('dateEditLabel').textContent=isStart?'新しい開始日を選択してください':'新しい終了日を選択してください';
+  document.getElementById('dateEditInput').value=isStart?(task.startDate||''):(task.endDate||'');
+  document.getElementById('dateEditModal').classList.add('show');
+  setTimeout(()=>document.getElementById('dateEditInput').focus(),300);
+}
+function closeDateEditModal(){document.getElementById('dateEditModal').classList.remove('show');dateEditTaskId=null;dateEditType=null;}
+
+function applyDateChange(){
+  const newVal=document.getElementById('dateEditInput').value;
+  if(!newVal){showToast('⚠ 日付を選択してください','#ff6b6b');return;}
+  const task=tasks.find(t=>t.id===dateEditTaskId);
+  if(!task){closeDateEditModal();return;}
+  if(dateEditType==='start'){
+    if(task.endDate&&newVal>task.endDate){showToast('⚠ 開始日は終了日以前にしてください','#ff6b6b');return;}
+    task.startDate=newVal;
+  }else{
+    if(task.startDate&&newVal<task.startDate){showToast('⚠ 終了日は開始日以降にしてください','#ff6b6b');return;}
+    task.endDate=newVal;
+  }
+  saveAll();closeDateEditModal();renderList();
+  if(document.getElementById('page-gantt').classList.contains('active'))renderGantt();
+  showToast('✓ 期間を更新しました');
+}
+
+// ============================================================
+//  グループ移動
+// ============================================================
+let movingTaskId=null;
+function openMoveModal(taskId){
+  movingTaskId=taskId;const task=tasks.find(t=>t.id===taskId);if(!task)return;
+  const genres=getActiveGenres().filter(g=>g!==task.genre);
+  const listEl=document.getElementById('moveGenreList');
+  if(genres.length===0){listEl.innerHTML=`<div style="color:var(--text-sub);font-size:0.9rem;text-align:center;padding:20px;">移動先のグループがありません</div>`;}
+  else{listEl.innerHTML=genres.map(g=>`<div class="modal-genre-item" onclick="moveTaskToGenre('${esc(g)}')"><span class="item-color" style="background:${getColor(g)}"></span>${esc(g)}</div>`).join('');}
+  document.getElementById('moveModal').classList.add('show');
+}
+function closeMoveModal(){document.getElementById('moveModal').classList.remove('show');movingTaskId=null;}
+function moveTaskToGenre(targetGenre){
+  if(movingTaskId===null)return;const task=tasks.find(t=>t.id===movingTaskId);
+  if(!task){closeMoveModal();return;}task.genre=targetGenre;saveAll();closeMoveModal();renderList();showToast(`✓ 「${targetGenre}」に移動しました`);
+}
+
+// ============================================================
+//  ★★★ タッチドラッグ（長押し）修正版 ★★★
+//
+//  【変更点】
+//  1. touch-action を pan-y にしたため、縦スクロールは
+//     ブラウザが処理する。onTouchMove での e.preventDefault() は
+//     ドラッグ確定後（isDragging===true）のみ呼ぶ。
+//  2. ただし pan-y の状態では passive イベントリスナーが
+//     デフォルトになるため、touchmove は { passive: false } で
+//     addEventListener を使い、ドラッグ中のみ preventDefault する。
+//  3. HTML側の ontouchmove は削除し、JS側で登録する。
+// ============================================================
+let touchDragId=null,longPressTimer=null,isDragging=false,dragStartX=0,dragStartY=0;
+const LONG_PRESS_MS=500;
+const ghost=document.getElementById('drag-ghost');
+
+function onTouchStart(e,taskId){
+  if(e.target.classList.contains('task-checkbox')||
+     e.target.classList.contains('btn-move')||
+     e.target.classList.contains('task-date-btn'))return;
+  const touch=e.touches[0];
+  dragStartX=touch.clientX;dragStartY=touch.clientY;
+  longPressTimer=setTimeout(()=>startTouchDrag(taskId,touch.clientX,touch.clientY),LONG_PRESS_MS);
+}
+
+function startTouchDrag(taskId,x,y){
+  touchDragId=taskId;isDragging=true;
+  const task=tasks.find(t=>t.id===taskId);if(!task)return;
+  ghost.textContent=task.name;ghost.style.display='block';
+  ghost.style.left=x+'px';ghost.style.top=y+'px';
+  const card=document.querySelector(`.task-card[data-id="${taskId}"]`);
+  if(card)card.classList.add('dragging');
+  if(navigator.vibrate)navigator.vibrate(40);
+}
+
+// ★ touchmove は JS で登録（passive:false にして、ドラッグ中のみ preventDefault）
+document.addEventListener('touchmove', function(e){
+  // 長押しタイマー中に指が動いたらキャンセル
+  if(longPressTimer){
+    const t=e.touches[0];
+    if(Math.abs(t.clientX-dragStartX)>10||Math.abs(t.clientY-dragStartY)>10){
+      clearTimeout(longPressTimer);longPressTimer=null;
+    }
+  }
+  // ドラッグ確定後のみスクロールを止めてゴーストを動かす
+  if(!isDragging)return;
+  e.preventDefault(); // ← ドラッグ中のみ縦スクロールを止める
+  const touch=e.touches[0];
+  ghost.style.left=touch.clientX+'px';ghost.style.top=touch.clientY+'px';
+  ghost.style.display='none';
+  const el=document.elementFromPoint(touch.clientX,touch.clientY);
+  ghost.style.display='block';
+  document.querySelectorAll('.genre-section').forEach(s=>s.classList.remove('drag-over-section'));
+  const sec=el?el.closest('.genre-section'):null;
+  if(sec)sec.classList.add('drag-over-section');
+},{passive:false}); // ★ passive:false が必須（preventDefault を使うため）
+
+function onTouchEnd(e){
+  clearTimeout(longPressTimer);longPressTimer=null;
+  if(!isDragging){isDragging=false;touchDragId=null;return;}
+  const touch=e.changedTouches[0];
+  ghost.style.display='none';
+  document.querySelectorAll('.genre-section').forEach(s=>s.classList.remove('drag-over-section'));
+  document.querySelectorAll('.task-card').forEach(c=>c.classList.remove('dragging'));
+  const el=document.elementFromPoint(touch.clientX,touch.clientY);
+  const sec=el?el.closest('.genre-section'):null;
+  const targetGenre=sec?sec.getAttribute('data-genre'):null;
+  if(targetGenre&&touchDragId!==null){
+    const task=tasks.find(t=>t.id===touchDragId);
+    if(task&&task.genre!==targetGenre){
+      task.genre=targetGenre;saveAll();renderList();
+      showToast(`✓ 「${targetGenre}」に移動しました`);
+    }
+  }
+  isDragging=false;touchDragId=null;
+}
+
+// ============================================================
+//  2ページ目：タスク一覧
+//  ★ ontouchmove をカードから削除（JS側のリスナーで処理）
+// ============================================================
+function renderList(){
+  const container=document.getElementById('task-list-container');
+  if(tasks.length===0){container.innerHTML=`<div class="empty-msg"><div class="icon">📋</div>タスクはありません</div>`;return;}
+  const groups={};tasks.forEach(t=>{if(!groups[t.genre])groups[t.genre]=[];groups[t.genre].push(t);});
+  Object.values(groups).forEach(arr=>arr.sort((a,b)=>(a.endDate||'9999').localeCompare(b.endDate||'9999')));
+  let html='';
+  for(const genre in groups){
+    const color=getColor(genre);const list=groups[genre];
+    html+=`<div class="genre-section" data-genre="${esc(genre)}">
+      <div class="genre-header">
+        <span class="genre-badge" style="background:${color}">${esc(genre)}</span>
+        <span class="genre-count">${list.length}件</span>
+      </div>`;
+    list.forEach(t=>{
+      const td=isToday(t.endDate),ug=isUrgent(t.endDate);
+      let cls='task-card';if(td)cls+=' today-due';else if(ug)cls+=' urgent';
+      const startDisp=formatDateDisp(t.startDate);
+      const endDisp  =formatDateDisp(t.endDate);
+      // ★ ontouchmove を削除（document レベルのリスナーで処理）
+      html+=`<div class="${cls}" data-id="${t.id}" style="--c:${color}"
+        ontouchstart="onTouchStart(event,${t.id})"
+        ontouchend="onTouchEnd(event)"
+      >
+        <style>.task-card[style="--c:${color}"]::before{background:${color}}</style>
+        <div class="task-card-top">
+          <div class="task-info">
+            <div class="task-name">${esc(t.name)}</div>
+          </div>
+          <button class="btn-move" onclick="openMoveModal(${t.id})">移動</button>
+          <input type="checkbox" class="task-checkbox" onchange="completeTask(${t.id})" title="完了にする"/>
+        </div>
+        <div class="task-period-row">
+          <button class="task-date-btn" onclick="openDateEditModal(${t.id},'start')">📅 ${esc(startDisp)}</button>
+          <span class="task-date-sep">〜</span>
+          <button class="task-date-btn" onclick="openDateEditModal(${t.id},'end')">🏁 ${esc(endDisp)}</button>
+        </div>
+      </div>`;
+    });
+    html+=`</div>`;
+  }
+  container.innerHTML=html;
+}
+
+// ============================================================
+//  完了済み
+// ============================================================
+function renderDone(){
+  const c=document.getElementById('done-list-container');
+  if(doneTasks.length===0){c.innerHTML=`<div class="empty-msg"><div class="icon">✅</div>完了済みタスクはありません</div>`;return;}
+  const groups={};doneTasks.forEach(t=>{if(!groups[t.genre])groups[t.genre]=[];groups[t.genre].push(t);});
+  let html='';
+  for(const genre in groups){
+    html+=`<div class="genre-section"><div class="done-genre-label">${esc(genre)}</div>`;
+    groups[genre].forEach(t=>{html+=`<div class="done-task-card"><span class="done-task-name">${esc(t.name)}</span><button class="btn-delete" onclick="deleteTask(${t.id})">削除</button></div>`;});
+    html+=`</div>`;
+  }
+  c.innerHTML=html;
+}
+
+// ============================================================
+//  CSV
+// ============================================================
+function downloadCSV(){
+  if(tasks.length===0){showToast('⚠ タスクがありません','#ffa94d');return;}
+  const BOM='\uFEFF';
+  const rows=tasks.map(t=>[t.id,csvEsc(t.genre),csvEsc(t.name),t.startDate||'',t.endDate||''].join(',')).join('\n');
+  const blob=new Blob([BOM+'ID,ジャンル,タスク名,開始日,終了日\n'+rows],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');
+  const now=new Date();const stamp=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+  a.href=url;a.download=`TaskFlow_backup_${stamp}.csv`;a.click();URL.revokeObjectURL(url);
+  showToast('⬇ CSVをダウンロードしました');
+}
+function csvEsc(str){if(/[,"\n\r]/.test(str))return'"'+str.replace(/"/g,'""')+'"';return str;}
+function normDate(str){if(!str)return'';const n=str.trim().replace(/\//g,'-');return/^\d{4}-\d{2}-\d{2}$/.test(n)?n:'';}
+
+let pendingTasks=[];
+function handleUpload(event){
+  const file=event.target.files[0];if(!file)return;event.target.value='';
+  const reader=new FileReader();
+  reader.onload=(e)=>{
+    try{
+      const text=e.target.result.replace(/^\uFEFF/,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+      const lines=text.trim().split('\n');if(lines.length<2){showToast('⚠ CSVにデータがありません','#ff6b6b');return;}
+      const hc=lines[0].split(',').length;const parsed=[];
+      for(let i=1;i<lines.length;i++){
+        if(!lines[i].trim())continue;const cols=parseCSVLine(lines[i]);if(cols.length<4||!cols[0])continue;
+        let startDate='',endDate='';
+        if(hc>=5&&cols.length>=5){startDate=normDate(cols[3]);endDate=normDate(cols[4]);}else{endDate=normDate(cols[3]);}
+        parsed.push({id:Number(cols[0])||Date.now()+i,genre:cols[1].trim(),name:cols[2].trim(),startDate,endDate});
+      }
+      if(parsed.length===0){showToast('⚠ 有効なタスクが見つかりませんでした','#ff6b6b');return;}
+      pendingTasks=parsed;
+      document.getElementById('modalBody').innerHTML=`<strong style="color:var(--text)">${parsed.length}件</strong>のタスクが含まれています。`;
+      document.getElementById('uploadModal').classList.add('show');
+    }catch(err){showToast('⚠ 読み込みに失敗しました','#ff6b6b');}
+  };
+  reader.readAsText(file,'UTF-8');
+}
+function parseCSVLine(line){const result=[];let cur='',inQ=false;for(let i=0;i<line.length;i++){const ch=line[i];if(inQ){if(ch==='"'&&line[i+1]==='"'){cur+='"';i++;}else if(ch==='"'){inQ=false;}else{cur+=ch;}}else{if(ch==='"'){inQ=true;}else if(ch===','){result.push(cur);cur='';}else{cur+=ch;}}}result.push(cur);return result;}
+function applyUpload(mode){closeUploadModal();let cnt=0;if(mode==='replace'){tasks=pendingTasks;cnt=pendingTasks.length;}else{const ids=new Set(tasks.map(t=>t.id));const nw=pendingTasks.filter(t=>!ids.has(t.id));tasks=[...tasks,...nw];cnt=nw.length;}cleanColors();saveAll();renderList();showToast(mode==='replace'?`✓ ${cnt}件で上書きしました`:`✓ ${cnt}件を追加しました`);pendingTasks=[];}
+function closeUploadModal(){document.getElementById('uploadModal').classList.remove('show');}
+
+// ============================================================
+//  ガントチャート
+// ============================================================
+let ganttViewStart=null,ganttScale='day';
+function onScaleChange(){ganttScale=document.getElementById('ganttScale').value;renderGantt();}
+function getGanttRange(){let minD=null,maxD=null;tasks.forEach(t=>{const s=parseDate(t.startDate),e=parseDate(t.endDate);if(s&&(!minD||s<minD))minD=s;if(e&&(!maxD||e>maxD))maxD=e;});return{minD,maxD};}
+function fitGanttToTasks(){const{minD}=getGanttRange();const today=new Date();today.setHours(0,0,0,0);if(ganttScale==='day'){ganttViewStart=minD?addDays(minD,-3):addDays(today,-7);}else{const base=minD||today;ganttViewStart=new Date(base.getFullYear(),base.getMonth()-1,1);}renderGantt();}
+function jumpGanttToday(){const today=new Date();today.setHours(0,0,0,0);if(ganttScale==='day'){ganttViewStart=addDays(today,-3);}else{ganttViewStart=new Date(today.getFullYear(),today.getMonth()-1,1);}renderGantt();}
+function shiftGantt(dir){if(!ganttViewStart){jumpGanttToday();return;}if(ganttScale==='day')ganttViewStart=addDays(ganttViewStart,dir*30);else if(ganttScale==='ten')ganttViewStart=new Date(ganttViewStart.getFullYear(),ganttViewStart.getMonth()+dir*3,1);else ganttViewStart=new Date(ganttViewStart.getFullYear(),ganttViewStart.getMonth()+dir*6,1);renderGantt();}
+
+function buildColumns(){
+  const tStr=todayStr();const todayD=parseDate(tStr);let columns=[];
+  if(ganttScale==='day'){
+    for(let i=0;i<60;i++){
+      const d=addDays(ganttViewStart,i);
+      const ds=dateToStr(d);const dow=d.getDay();
+      columns.push({label:String(d.getDate()),startDate:d,endDate:d,isToday:ds===tStr,isSat:dow===6,isSun:dow===0,colWidth:28});
+    }
+  } else if(ganttScale==='ten'){
+    for(let mi=0;mi<6;mi++){
+      const firstOfMonth=new Date(ganttViewStart.getFullYear(),ganttViewStart.getMonth()+mi,1);
+      const y=firstOfMonth.getFullYear();
+      const m=firstOfMonth.getMonth();
+      const monthEnd=new Date(y,m+1,0);
+      const lastDay=monthEnd.getDate();
+      const blocks=[
+        {s:new Date(y,m,1), e:new Date(y,m,9),               label:'1日'},
+        {s:new Date(y,m,10),e:new Date(y,m,19),               label:'10日'},
+        {s:new Date(y,m,20),e:new Date(y,m,29),               label:'20日'},
+        {s:new Date(y,m,Math.min(30,lastDay)),e:monthEnd,      label:'30日'}
+      ];
+      const monthKey=`${y}年${m+1}月`;
+      blocks.forEach(blk=>{
+        if(blk.s>blk.e)return;
+        const isT=todayD>=blk.s&&todayD<=blk.e;
+        columns.push({label:blk.label,startDate:blk.s,endDate:blk.e,isToday:isT,isSat:false,isSun:false,colWidth:38,_monthKey:monthKey});
+      });
+    }
+  } else {
+    for(let i=0;i<12;i++){
+      const d=new Date(ganttViewStart.getFullYear(),ganttViewStart.getMonth()+i,1);
+      const me=new Date(d.getFullYear(),d.getMonth()+1,0);
+      const isT=todayD>=d&&todayD<=me;
+      columns.push({label:`${d.getMonth()+1}月`,startDate:d,endDate:me,isToday:isT,isSat:false,isSun:false,colWidth:52});
+    }
+  }
+  return columns;
+}
+
+function renderGantt(){
+  const container=document.getElementById('gantt-container');const legend=document.getElementById('ganttLegend');
+  if(tasks.length===0){container.innerHTML=`<div class="gantt-empty"><div class="icon">📅</div>タスクがありません</div>`;legend.innerHTML='';return;}
+  if(!ganttViewStart){fitGanttToTasks();return;}
+  const columns=buildColumns();
+  const groupOrder=[],groupMap={};
+  tasks.forEach(t=>{if(!groupMap[t.genre]){groupMap[t.genre]=[];groupOrder.push(t.genre);}groupMap[t.genre].push(t);});
+  groupOrder.forEach(g=>{groupMap[g].sort((a,b)=>(a.endDate||'9999').localeCompare(b.endDate||'9999'));});
+  legend.innerHTML=groupOrder.map(g=>{const color=getColor(g);return`<div class="legend-item"><div class="legend-color" style="background:${color}"></div><span>${esc(g)}</span></div>`;}).join('');
+
+  let html='<table class="gantt-table"><colgroup><col style="width:36px;min-width:36px;"><col style="width:120px;min-width:120px;">';
+  columns.forEach(col=>{html+=`<col style="width:${col.colWidth}px;min-width:${col.colWidth}px;">`;});
+  html+='</colgroup><thead>';
+
+  function buildSpans(keyFn){let spans=[],cur=null,cs=0;columns.forEach(col=>{const k=keyFn(col);if(k!==cur){if(cur)spans.push({label:cur,span:cs});cur=k;cs=1;}else cs++;});if(cur)spans.push({label:cur,span:cs});return spans;}
+  const fixedTh=`<th class="th-group-label" rowspan="2" style="position:sticky;left:0;z-index:20;background:var(--surface2);width:36px;"></th><th class="th-task-label" rowspan="2" style="position:sticky;left:36px;z-index:20;background:var(--surface2);border-right:2px solid var(--border);width:120px;">タスク名</th>`;
+
+  if(ganttScale==='day'){
+    const spans=buildSpans(col=>`${col.startDate.getFullYear()}年${col.startDate.getMonth()+1}月`);
+    html+=`<tr>${fixedTh}`;spans.forEach(s=>{html+=`<th class="th-month" colspan="${s.span}">${esc(s.label)}</th>`;});html+='</tr><tr>';
+    columns.forEach(col=>{let cls='th-day';if(col.isToday)cls+=' today-col';else if(col.isSat)cls+=' sat';else if(col.isSun)cls+=' sun';html+=`<th class="${cls}">${col.label}</th>`;});html+='</tr>';
+  } else if(ganttScale==='ten'){
+    const spans=buildSpans(col=>col._monthKey);
+    html+=`<tr>${fixedTh}`;spans.forEach(s=>{html+=`<th class="th-month" colspan="${s.span}">${esc(s.label)}</th>`;});html+='</tr><tr>';
+    columns.forEach(col=>{let cls='th-day';if(col.isToday)cls+=' today-col';html+=`<th class="${cls}">${col.label}</th>`;});html+='</tr>';
+  } else {
+    const spans=buildSpans(col=>`${col.startDate.getFullYear()}年`);
+    html+=`<tr>${fixedTh}`;spans.forEach(s=>{html+=`<th class="th-month" colspan="${s.span}">${esc(s.label)}</th>`;});html+='</tr><tr>';
+    columns.forEach(col=>{let cls='th-day';if(col.isToday)cls+=' today-col';html+=`<th class="${cls}">${col.label}</th>`;});html+='</tr>';
+  }
+  html+='</thead><tbody>';
+
+  groupOrder.forEach((genre,gi)=>{
+    const color=getColor(genre);const taskList=groupMap[genre];
+    const r=parseInt(color.slice(1,3),16)||0,g2=parseInt(color.slice(3,5),16)||0,b=parseInt(color.slice(5,7),16)||0;
+    taskList.forEach((t,ti)=>{
+      html+=`<tr class="${ti===0&&gi>0?'group-border-top':''}">`;
+      if(ti===0){html+=`<td class="td-group" rowspan="${taskList.length}" style="background:${color}"><div class="td-group-inner">${esc(genre)}</div></td>`;}
+      html+=`<td class="td-task" title="${esc(t.name)}">${esc(t.name)}</td>`;
+      let sDate=parseDate(t.startDate),eDate=parseDate(t.endDate);
+      if(ganttScale==='ten'){if(sDate)sDate=roundToTen(sDate);if(eDate)eDate=roundToTen(eDate);if(sDate&&eDate&&sDate>eDate){sDate=null;eDate=null;}}
+      columns.forEach(col=>{
+        let cls='td-day';if(col.isToday)cls+=' today-col';else if(col.isSat||col.isSun)cls+=' weekend';
+        let style='';
+        if(sDate&&eDate&&col.endDate>=sDate&&col.startDate<=eDate){
+          const isS=col.startDate<=sDate&&sDate<=col.endDate;const isE=col.startDate<=eDate&&eDate<=col.endDate;
+          style=`background:rgba(${r},${g2},${b},0.30);`;
+          if(isS&&isE)style+='border-radius:6px;';else if(isS)style+='border-radius:6px 0 0 6px;';else if(isE)style+='border-radius:0 6px 6px 0;';
+        }
+        html+=`<td class="${cls}" style="${style}"></td>`;
+      });
+      html+='</tr>';
+    });
+  });
+  html+='</tbody></table>';
+  container.innerHTML=html;
+  requestAnimationFrame(()=>{const wrapper=document.getElementById('ganttWrapper');const ti=columns.findIndex(c=>c.isToday);if(ti>=0&&wrapper){const cw=columns[0]?columns[0].colWidth:28;wrapper.scrollLeft=Math.max(0,156+ti*cw-wrapper.clientWidth/2);}});
+}
+
+// ============================================================
+//  Excel出力
+// ============================================================
+function exportExcel(){
+  if(!ganttViewStart||tasks.length===0){showToast('⚠ スケジュールがありません','#ffa94d');return;}
+  const columns=buildColumns();const groupOrder=[],groupMap={};
+  tasks.forEach(t=>{if(!groupMap[t.genre]){groupMap[t.genre]=[];groupOrder.push(t.genre);}groupMap[t.genre].push(t);});
+  groupOrder.forEach(g=>{groupMap[g].sort((a,b)=>(a.endDate||'9999').localeCompare(b.endDate||'9999'));});
+  let xml='<?xml version="1.0" encoding="UTF-8"?>\n<?mso-application progid="Excel.Sheet"?>\n';
+  xml+='<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n';
+  xml+='<Styles>\n <Style ss:ID="h"><Font ss:Bold="1"/><Alignment ss:Horizontal="Center"/><Interior ss:Color="#D9D9D9" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>\n';
+  xml+=' <Style ss:ID="c"><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>\n';
+  xml+=' <Style ss:ID="b"><Alignment ss:Horizontal="Center"/><Interior ss:Color="#BDD7EE" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>\n</Styles>\n';
+  xml+='<Worksheet ss:Name="スケジュール"><Table>\n<Row>\n <Cell ss:StyleID="h"><Data ss:Type="String">グループ</Data></Cell>\n <Cell ss:StyleID="h"><Data ss:Type="String">タスク名</Data></Cell>\n';
+  let prevLbl='';
+  columns.forEach(col=>{
+    const lbl=col._monthKey||`${col.startDate.getFullYear()}年${col.startDate.getMonth()+1}月`;
+    xml+=` <Cell ss:StyleID="h"><Data ss:Type="String">${xmlEsc(lbl!==prevLbl?lbl:'')}</Data></Cell>\n`;
+    prevLbl=lbl;
+  });
+  xml+='</Row>\n<Row>\n <Cell ss:StyleID="h"><Data ss:Type="String"></Data></Cell>\n <Cell ss:StyleID="h"><Data ss:Type="String"></Data></Cell>\n';
+  columns.forEach(col=>{xml+=` <Cell ss:StyleID="h"><Data ss:Type="String">${xmlEsc(col.label)}</Data></Cell>\n`;});
+  xml+='</Row>\n';
+  groupOrder.forEach(genre=>{
+    groupMap[genre].forEach((t,ti)=>{
+      xml+='<Row>\n';
+      xml+=` <Cell ss:StyleID="c"><Data ss:Type="String">${xmlEsc(ti===0?genre:'')}</Data></Cell>\n`;
+      xml+=` <Cell ss:StyleID="c"><Data ss:Type="String">${xmlEsc(t.name)}</Data></Cell>\n`;
+      let sDate=parseDate(t.startDate),eDate=parseDate(t.endDate);
+      if(ganttScale==='ten'){if(sDate)sDate=roundToTen(sDate);if(eDate)eDate=roundToTen(eDate);if(sDate&&eDate&&sDate>eDate){sDate=null;eDate=null;}}
+      columns.forEach(col=>{xml+=sDate&&eDate&&col.endDate>=sDate&&col.startDate<=eDate?` <Cell ss:StyleID="b"><Data ss:Type="String">●</Data></Cell>\n`:` <Cell ss:StyleID="c"><Data ss:Type="String"></Data></Cell>\n`;});
+      xml+='</Row>\n';
+    });
+  });
+  xml+='</Table></Worksheet></Workbook>';
+  const blob=new Blob(['\uFEFF'+xml],{type:'application/vnd.ms-excel;charset=utf-8'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');
+  const now=new Date();const stamp=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+  a.href=url;a.download=`TaskFlow_schedule_${stamp}.xls`;a.click();URL.revokeObjectURL(url);
+  showToast('📊 Excelファイルを出力しました');
+}
+
+function xmlEsc(str){return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');}
+function esc(str){return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function showToast(msg,bg){const t=document.getElementById('toast');t.textContent=msg;t.style.background=bg||'var(--success)';t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
+
+setInterval(()=>{
+  if(document.getElementById('page-list').classList.contains('active'))renderList();
+  if(document.getElementById('page-gantt').classList.contains('active'))renderGantt();
+},60000);
+
+renderList();
+</script>
+</body>
+</html>
